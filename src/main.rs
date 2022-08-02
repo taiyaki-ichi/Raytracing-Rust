@@ -1,7 +1,11 @@
-use glam::Vec2;
+mod ray;
+
+use glam::{Vec2, Vec3};
 use image::{Rgb, RgbImage};
 // prelude::*はfor_eachとか用
 use rayon::{prelude::*,iter::IntoParallelRefMutIterator};
+
+use crate::ray::Ray;
 
 fn main() {
     let a = Vec2::new(1.0, 1.0);
@@ -30,4 +34,8 @@ fn main() {
     // 結果の確認
     // hoge.pngは後で消すこと
     img.save(String::from("hoge.png")).unwrap();
+
+    let r=Ray::new(Vec3::new(0.0,0.0,0.0),Vec3::new(1.0,0.0,0.0));
+    println!("{}",r.at(10.0));
+
 }
