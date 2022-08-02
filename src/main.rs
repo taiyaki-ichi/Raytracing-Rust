@@ -1,4 +1,7 @@
+// これないとダメらしい
+// rust-analyzerも動かなかったし
 mod ray;
+mod camera;
 
 use glam::{Vec2, Vec3};
 use image::{Rgb, RgbImage};
