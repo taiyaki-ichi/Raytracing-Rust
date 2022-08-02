@@ -1,12 +1,30 @@
-use glam::*;
+use glam::Vec2;
+use image::{Rgb, RgbImage};
 
 fn main() {
-
-    let a=Vec2::new(1.0,1.0);
-    let b=vec2(0.0,1.0);
+    let a = Vec2::new(1.0, 1.0);
+    let b = Vec2::new(0.0, 1.0);
 
     // 内積
-    let c=a.dot(b);
+    let c = a.dot(b);
 
-    println!("{}",c);
+    // 結果の確認
+    println!("{}", c);
+
+    let mut img = RgbImage::new(100, 100);
+    img.enumerate_pixels_mut()
+        // collectはFromIterator<Self::Item>トレイトに含まれる
+        // [char]からStringへの変換とか行う時なんかに使う
+        // あと、値と関数のペアの配列の要素を評価したりする時とか
+        .collect::<Vec<(u32, u32, &mut Rgb<u8>)>>()
+        .iter_mut()
+        .for_each(|(_, _, pixel)| {
+            pixel[0] = 255;
+            pixel[1] = 0;
+            pixel[2] = 0;
+        });
+    
+    // 結果の確認
+    // hoge.pngは後で消すこと
+    img.save(String::from("hoge.png")).unwrap();
 }
