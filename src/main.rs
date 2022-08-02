@@ -1,5 +1,7 @@
 use glam::Vec2;
 use image::{Rgb, RgbImage};
+// prelude::*はfor_eachとか用
+use rayon::{prelude::*,iter::IntoParallelRefMutIterator};
 
 fn main() {
     let a = Vec2::new(1.0, 1.0);
@@ -9,6 +11,7 @@ fn main() {
     let c = a.dot(b);
 
     // 結果の確認
+    // びっくりマークがつく関数はNever型と言うものを返すらしい
     println!("{}", c);
 
     let mut img = RgbImage::new(100, 100);
@@ -17,7 +20,7 @@ fn main() {
         // [char]からStringへの変換とか行う時なんかに使う
         // あと、値と関数のペアの配列の要素を評価したりする時とか
         .collect::<Vec<(u32, u32, &mut Rgb<u8>)>>()
-        .iter_mut()
+        .par_iter_mut()
         .for_each(|(_, _, pixel)| {
             pixel[0] = 255;
             pixel[1] = 0;
