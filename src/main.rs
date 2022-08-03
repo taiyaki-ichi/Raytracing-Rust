@@ -1,44 +1,62 @@
 // これないとダメらしい
 // rust-analyzerも動かなかったし
-mod ray;
 mod camera;
+mod ray;
 
-use glam::{Vec2, Vec3};
+use camera::Camera;
+use glam::{vec3, Vec2, Vec3};
 use image::{Rgb, RgbImage};
 // prelude::*はfor_eachとか用
-use rayon::{prelude::*,iter::IntoParallelRefMutIterator};
+use rayon::{iter::IntoParallelRefMutIterator, prelude::*};
 
 use crate::ray::Ray;
 
+const IMAGE_WIDTH: u32 = 200;
+const IMAGE_HEIGHT: u32 = 100;
+
+// 外部で定義された構造体にメンバ関数を追加できないっぽいので普通の関数で
+fn map<F>(v: Vec3, f: F) -> Vec3
+where
+    F: Fn(f32) -> f32,
+{
+    vec3(f(v.x), f(v.y), f(v.z))
+}
+
+fn to_rgb(v: Vec3) -> [u8; 3] {
+    let rgb = map(v, |e| 255.99 * e.min(1.0).max(0.0));
+    [rgb.x as u8, rgb.y as u8, rgb.z as u8]
+}
+
+// とりあえずここに定義しておく
+pub type Color = Vec3;
+
+fn color(ray: &Ray) -> Color {
+    let d = ray.direction.normalize();
+    let t = 0.5 * (d.y + 1.0);
+    Color::new(0.5, 0.7, 1.0).lerp(Color::ONE, t)
+}
+
 fn main() {
-    let a = Vec2::new(1.0, 1.0);
-    let b = Vec2::new(0.0, 1.0);
+    let camera = Camera::new(
+        Vec3::new(4.0, 0.0, 0.0),
+        Vec3::new(0.0, 2.0, 0.0),
+        Vec3::new(-2.0, 1.0, -1.0),
+    );
 
-    // 内積
-    let c = a.dot(b);
-
-    // 結果の確認
-    // びっくりマークがつく関数はNever型と言うものを返すらしい
-    println!("{}", c);
-
-    let mut img = RgbImage::new(100, 100);
+    let mut img = RgbImage::new(IMAGE_WIDTH, IMAGE_HEIGHT);
     img.enumerate_pixels_mut()
-        // collectはFromIterator<Self::Item>トレイトに含まれる
-        // [char]からStringへの変換とか行う時なんかに使う
-        // あと、値と関数のペアの配列の要素を評価したりする時とか
         .collect::<Vec<(u32, u32, &mut Rgb<u8>)>>()
         .par_iter_mut()
-        .for_each(|(_, _, pixel)| {
-            pixel[0] = 255;
-            pixel[1] = 0;
-            pixel[2] = 0;
+        .for_each(|(x, y, pixel)| {
+            let u = *x as f32 / (IMAGE_WIDTH - 1) as f32;
+            let v = *y as f32 / (IMAGE_HEIGHT - 1) as f32;
+            let ray = camera.ray(u, v);
+            let rgbVec3 = color(&ray);
+            let [r,g,b]=to_rgb(rgbVec3);
+            pixel[0] = r;
+            pixel[1] = g;
+            pixel[2] = b;
         });
-    
-    // 結果の確認
-    // hoge.pngは後で消すこと
-    img.save(String::from("hoge.png")).unwrap();
 
-    let r=Ray::new(Vec3::new(0.0,0.0,0.0),Vec3::new(1.0,0.0,0.0));
-    println!("{}",r.at(10.0));
-
+    img.save(String::from("render.png")).unwrap();
 }
