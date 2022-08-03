@@ -29,7 +29,7 @@ impl Camera {
         let halfh = (vfov.to_radians() * 0.5).tan();
         let halfw = aspect * halfh;
         let w = (origin - lookat).normalize();
-        let u=vup.cross(w).normalize();
+        let u = vup.cross(w).normalize();
         let v = w.cross(u);
         let uw = halfw * u;
         let vh = halfh * v;
