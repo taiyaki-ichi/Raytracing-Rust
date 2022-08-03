@@ -28,25 +28,38 @@ fn to_rgb(v: Vec3) -> [u8; 3] {
 }
 
 // とりまここ
-fn hit_sphere(center: Vec3, radius: f32, ray: &Ray) -> bool {
+fn hit_sphere(center: Vec3, radius: f32, ray: &Ray) -> f32 {
     let oc = ray.origin - center;
     let a = ray.direction.dot(ray.direction);
     let b = 2.0 * ray.direction.dot(oc);
     let c = oc.dot(oc) - radius.powi(2);
     let d = b * b - 4.0 * a * c;
-    d > 0.0
+
+    // 円と直線の交点が1つもない場合
+    // つまり円と直線が交差していない場合
+    if d < 0.0 {
+        -1.0
+    }
+    // 交差している場合は交点の媒介変数を返す
+    // このコードは2次方程式の解の公式まんまの形になっている
+    else {
+        (-b - d.sqrt()) / (2.0 * a)
+    }
 }
 
-// とりあえずここに定義しておく
-pub type Color = Vec3;
-
-fn color(ray: &Ray) -> Color {
-    if hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &ray) {
-        return Color::new(1.0, 0.0, 0.0);
+fn color(ray: &Ray) -> Vec3 {
+    // 円の中心
+    let circle_center = vec3(0.0, 0.0, -1.0);
+    let t = hit_sphere(circle_center, 0.5, &ray);
+    if t > 0.0 {
+        let n = (ray.at(t) - circle_center).normalize();
+        // わざわざreturn書きたくないのだが
+        return 0.5 * (n + Vec3::ONE);
     }
+
     let d = ray.direction.normalize();
     let t = 0.5 * (d.y + 1.0);
-    Color::new(0.5, 0.7, 1.0).lerp(Color::ONE, t)
+    vec3(0.5, 0.7, 1.0).lerp(Vec3::ONE, t)
 }
 
 fn main() {
@@ -62,7 +75,7 @@ fn main() {
         .par_iter_mut()
         .for_each(|(x, y, pixel)| {
             let u = *x as f32 / (IMAGE_WIDTH - 1) as f32;
-            let v = *y as f32 / (IMAGE_HEIGHT - 1) as f32;
+            let v = (IMAGE_HEIGHT - *y - 1) as f32 / (IMAGE_HEIGHT - 1) as f32;
             let ray = camera.ray(u, v);
             let rgb_vec3 = color(&ray);
             let [r, g, b] = to_rgb(rgb_vec3);
@@ -70,6 +83,6 @@ fn main() {
             pixel[1] = g;
             pixel[2] = b;
         });
-        
+
     img.save(String::from("render.png")).unwrap();
 }
