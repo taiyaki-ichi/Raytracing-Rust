@@ -3,6 +3,8 @@
 mod camera;
 mod ray;
 mod render;
+mod hit_info;
+mod shape;
 
 use camera::Camera;
 use glam::{vec3, Vec2, Vec3};
@@ -10,35 +12,23 @@ use image::{Rgb, RgbImage};
 // prelude::*はfor_eachとか用
 use rayon::{iter::IntoParallelRefMutIterator, prelude::*};
 use render::{Scene, render};
+use shape::{ShapeList, Sphere, Shape};
 
 use crate::ray::Ray;
 
-// 空のクラスだ
-// トレイツベースでプログラミングしてくとこんなクラスが増えてくるのかな
-struct SimpleScene{}
+struct SimpleScene{
+    world: ShapeList,
+}
 
 impl SimpleScene{
-    // この関数, メンバとして実装する意味あるのか?
-    // あー, 関数をいくつも適用する際には便利なのか
-    // ベクトル演算のライブラリのglamもメンバ関数ばっかだし
-    // ベターな方法っぽいな
-    fn hit_sphere(&self,center: Vec3, radius: f32, ray: &Ray) -> f32 {
-        let oc = ray.origin - center;
-        let a = ray.direction.dot(ray.direction);
-        let b = 2.0 * ray.direction.dot(oc);
-        let c = oc.dot(oc) - radius.powi(2);
-        let d = b * b - 4.0 * a * c;
-    
-        // 円と直線の交点が1つもない場合
-        // つまり円と直線が交差していない場合
-        if d < 0.0 {
-            -1.0
-        }
-        // 交差している場合は交点の媒介変数を返す
-        // このコードは2次方程式の解の公式まんまの形になっている
-        else {
-            (-b - d.sqrt()) / (2.0 * a)
-        }
+
+    // メンバ変数を持つとコンストラクタを書かなきゃいけないっぽい
+    // コンストラクタについて他の記述の仕方もあると思う
+    fn new()->Self{
+        let mut world=ShapeList::new();
+        world.push(Box::new(Sphere::new(vec3(0.0, 0.0, -1.0),0.5)));
+        world.push(Box::new(Sphere::new(vec3(0.0, -100.5, -1.0),100.0)));
+        Self{world}
     }
 
     // 上側が青, 下側が白のグラデーションになるような背景
@@ -58,19 +48,16 @@ impl Scene for SimpleScene{
     }
 
     fn trace(&self, ray: Ray) -> Vec3 {
-        let circle_center=vec3(0.0, 0.0, -1.0);
-        let t=self.hit_sphere(circle_center,0.5,&ray);
-        if t > 0.0 {
-            let n = (ray.at(t) - circle_center).normalize();
-            // わざわざreturn書きたくないのだが
-            return 0.5 * (n + Vec3::ONE);
+        let hit_info=self.world.hit(&ray, 0.0, f32::MAX);
+        if let Some(hit)=hit_info{
+            // 当たった場合は物体の法線をもとにした色をつける
+            0.5*(hit.n+Vec3::ONE)
+        }else {
+            self.background(ray.direction)
         }
-        self.background(ray.direction)
     }
 }
 
 fn main() {
-
-    // {}でも構造体はインスタンス化できんのか
-    render(SimpleScene{});
+    render(SimpleScene::new());
 }
