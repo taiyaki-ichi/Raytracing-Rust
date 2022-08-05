@@ -11,10 +11,23 @@ use glam::{vec3, Vec2, Vec3};
 use image::{Rgb, RgbImage};
 // prelude::*はfor_eachとか用
 use rayon::{iter::IntoParallelRefMutIterator, prelude::*};
-use render::{render, render_aa, Scene};
+use render::{render, render_aa, Scene, map};
 use shape::{Shape, ShapeList, Sphere};
 
 use crate::ray::Ray;
+
+// 大きさ1以下ののランダムなベクトルの取得
+// 条件を満たすまで乱数を生成する方法を棄却法というらしい
+fn random_vec3_in_unit_sphere() -> Vec3 {
+    loop {
+        // [-1.0,1.0)の乱数を取得するクロージャ
+        let get_random = || rand::random::<f32>() * 2.0 - 1.0;
+        let point = vec3(get_random(), get_random(), get_random());
+        if point.length() < 1.0 {
+            return point;
+        }
+    }
+}
 
 struct SimpleScene {
     world: ShapeList,
@@ -47,10 +60,13 @@ impl Scene for SimpleScene {
     }
 
     fn trace(&self, ray: Ray) -> Vec3 {
-        let hit_info = self.world.hit(&ray, 0.0, f32::MAX);
+        // 0.001は同じ場所で衝突したと判定されないようにするための補正値
+        let hit_info = self.world.hit(&ray, 0.0001, f32::MAX);
         if let Some(hit) = hit_info {
-            // 当たった場合は物体の法線をもとにした色をつける
-            0.5 * (hit.n + Vec3::ONE)
+            // 当たった場合はランダムな方向に反射させ再度追跡する
+            // 当たらなくなるまで再帰させている
+            let target = hit.p + hit.n + random_vec3_in_unit_sphere();
+            0.5 * self.trace(Ray::new(hit.p, target - hit.p))
         } else {
             self.background(ray.direction)
         }

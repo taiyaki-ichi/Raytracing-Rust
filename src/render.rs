@@ -7,10 +7,11 @@ use crate::{camera::Camera, ray::Ray};
 const IMAGE_WIDTH: u32 = 200;
 const IMAGE_HEIGHT: u32 = 100;
 const OUTPUT_FILENAME: &str = "render.png";
-const SAMPLES_PER_PIXEL: usize = 8;
+const SAMPLES_PER_PIXEL: usize = 64;
+const GAMMA_FACTOR: f32 = 2.2;
 
 // 外部で定義された構造体にメンバ関数を追加できないっぽいので普通の関数で
-fn map<F>(v: Vec3, f: F) -> Vec3
+pub fn map<F>(v: Vec3, f: F) -> Vec3
 where
     F: Fn(f32) -> f32,
 {
@@ -18,9 +19,20 @@ where
 }
 
 //
-fn to_rgb(v: Vec3) -> [u8; 3] {
+pub fn to_rgb(v: Vec3) -> [u8; 3] {
     let rgb = map(v, |e| 255.99 * e.min(1.0).max(0.0));
     [rgb.x as u8, rgb.y as u8, rgb.z as u8]
+}
+
+// ガンマ補正をかける
+fn gamma(color: Vec3, factor: f32) -> Vec3 {
+    let recip = factor.recip();
+    map(color, |x| x.powf(recip))
+}
+
+// ガンマ補正を解く
+fn degamma(color: Vec3, factor: f32) -> Vec3 {
+    map(color, |x| x.powf(factor))
 }
 
 pub trait Scene {
@@ -85,9 +97,9 @@ pub fn render_aa(scene: impl Scene + Sync) {
             // 畳み込んで合計を計算しているだけ
             let mut pixel_color = (0..scene.spp()).into_iter().fold(Vec3::ZERO, |acc, _| {
                 // [0,1)->[-0.5,0.5)の範囲に写す
-                let rx = rand::random::<f32>()-0.5;
-                let ry = rand::random::<f32>()-0.5;
-                
+                let rx = rand::random::<f32>() - 0.5;
+                let ry = rand::random::<f32>() - 0.5;
+
                 let u = (*x as f32 + rx) / (scene.width() - 1) as f32;
                 let v = ((scene.height() - *y - 1) as f32 + ry) / (scene.height() - 1) as f32;
                 let ray = camera.ray(u, v);
@@ -95,7 +107,7 @@ pub fn render_aa(scene: impl Scene + Sync) {
                 acc + rgb_vec3
             });
             pixel_color /= scene.spp() as f32;
-            let [r, g, b] = to_rgb(pixel_color);
+            let [r, g, b] = to_rgb(gamma(pixel_color, GAMMA_FACTOR));
             pixel[0] = r;
             pixel[1] = g;
             pixel[2] = b;
