@@ -1,8 +1,12 @@
-use std::env::SplitPaths;
+use std::sync::Arc;
 
 use glam::Vec3;
 
-use crate::{hit_info::{HitInfo, self}, ray::Ray};
+use crate::{
+    hit_info::{self, HitInfo},
+    material::{self, Material},
+    ray::Ray,
+};
 
 // トレイトの継承ってやつ
 // Syncは複数スレッドからのアクセスを許可するらしい, 後々に調べていくことにする
@@ -13,19 +17,23 @@ pub trait Shape: Sync {
     fn hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<HitInfo>;
 }
 
-
 pub struct Sphere {
-    center : Vec3,
-    radius:f32,
+    center: Vec3,
+    radius: f32,
+    material: Arc<dyn Material>,
 }
 
-impl Sphere{
-    pub const fn new(center: Vec3,radius: f32)->Self{
-        Self{center,radius}
+impl Sphere {
+    pub const fn new(center: Vec3, radius: f32, material: Arc<dyn Material>) -> Self {
+        Self {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
-impl Shape for Sphere{
+impl Shape for Sphere {
     fn hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<HitInfo> {
         let oc = ray.origin - self.center;
         let a = ray.direction.dot(ray.direction);
@@ -35,27 +43,36 @@ impl Shape for Sphere{
 
         // 直線と円の交点が1つ以上あるとき
         // つまり, 光線と円が当たったとき
-        if d>0.0{
-            let root=d.sqrt();
+        if d > 0.0 {
+            let root = d.sqrt();
             // 2時方程式の解の公式まんま
-            let tmp=(-b-root)/(2.0*a);
+            let tmp = (-b - root) / (2.0 * a);
 
-            if t0<tmp&&tmp<t1{
-                let p=ray.at(tmp);
-                return Some(HitInfo::new(tmp,p,(p-self.center)/self.radius));
+            if t0 < tmp && tmp < t1 {
+                let p = ray.at(tmp);
+                return Some(HitInfo::new(
+                    tmp,
+                    p,
+                    (p - self.center) / self.radius,
+                    Arc::clone(&self.material),
+                ));
             }
 
-            let tmp=(-b+root)/(2.0*a);
-            if t0<tmp&&tmp<t1{
-                let p=ray.at(tmp);
-                return Some(HitInfo::new(tmp,p,(p-self.center)/self.radius));
+            let tmp = (-b + root) / (2.0 * a);
+            if t0 < tmp && tmp < t1 {
+                let p = ray.at(tmp);
+                return Some(HitInfo::new(
+                    tmp,
+                    p,
+                    (p - self.center) / self.radius,
+                    Arc::clone(&self.material),
+                ));
             }
         }
 
         None
     }
 }
-
 
 // impl Shape for Vec<Box<dyn Shape>>も一応できる
 pub struct ShapeList {
@@ -65,26 +82,28 @@ pub struct ShapeList {
     pub objects: Vec<Box<dyn Shape>>,
 }
 
-impl ShapeList{
-    pub fn new ()->Self{
-        Self { objects: Vec::new() }
+impl ShapeList {
+    pub fn new() -> Self {
+        Self {
+            objects: Vec::new(),
+        }
     }
 
-    pub fn push(&mut self, object:Box<dyn Shape>){
+    pub fn push(&mut self, object: Box<dyn Shape>) {
         self.objects.push(object);
     }
 }
 
-impl Shape for ShapeList{
+impl Shape for ShapeList {
     // 光線を飛ばしたときに当たった一番近い物体をO(n)で走査して返すメソッド
     // ここにはpubはいらないんだな
     fn hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<HitInfo> {
-        let mut hit_info:Option<HitInfo>=None;
-        let mut closest_so_far=t1;
-        for object in &self.objects{
-            if let Some(info)=object.hit(ray, t0, closest_so_far){
-                closest_so_far=info.t;
-                hit_info=Some(info);
+        let mut hit_info: Option<HitInfo> = None;
+        let mut closest_so_far = t1;
+        for object in &self.objects {
+            if let Some(info) = object.hit(ray, t0, closest_so_far) {
+                closest_so_far = info.t;
+                hit_info = Some(info);
             }
         }
 
