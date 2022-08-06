@@ -29,3 +29,19 @@ pub fn degamma(color: Vec3, factor: f32) -> Vec3 {
 pub fn reflect(vec3: Vec3, normal: Vec3) -> Vec3 {
     vec3 - 2.0 * vec3.dot(normal) * normal
 }
+
+// スネルの法則を用いて屈折率の比から透過する物体に当たったときの反射ベクトルを導出する
+// in_over_outは (入射側の媒質の屈折率)/(出射側の媒質の屈折率)
+pub fn refract(vec3: Vec3, normal: Vec3, in_over_out: f32) -> Option<Vec3> {
+    let uv = vec3.normalize();
+    let dt = uv.dot(normal);
+    let d = 1.0 - in_over_out.powi(2) * (1.0 - dt.powi(2));
+    if d > 0.0 {
+        Some(-in_over_out * (uv - normal * dt) - normal * d.sqrt())
+    }
+    // 全反射の場合 
+    else {
+        None
+    }
+}
+

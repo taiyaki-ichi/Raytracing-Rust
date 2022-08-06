@@ -13,7 +13,7 @@ use std::sync::Arc;
 use camera::Camera;
 use glam::{vec3, Vec2, Vec3};
 use image::{Rgb, RgbImage};
-use material::{Lambertian, Metal};
+use material::{Lambertian, Metal, Dielectric};
 // prelude::*はfor_eachとか用
 use rayon::{iter::IntoParallelRefMutIterator, prelude::*};
 use render::{render, render_aa, Scene};
@@ -51,7 +51,12 @@ impl SimpleScene {
         world.push(Box::new(Sphere::new(
             vec3(-0.6, 0.0, -1.0),
             0.5,
-            Arc::new(Metal::new(vec3(0.8, 0.8, 0.8), 1.0)),
+            Arc::new(Dielectric::new(1.5)),
+        )));
+        world.push(Box::new(Sphere::new(
+            vec3(-0.0, -0.35, -0.8),
+            0.15,
+            Arc::new(Metal::new(vec3(0.8, 0.8, 0.8), 0.2)),
         )));
         world.push(Box::new(Sphere::new(
             vec3(0.0, -100.5, -1.0),

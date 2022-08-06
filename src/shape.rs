@@ -20,6 +20,7 @@ pub trait Shape: Sync {
 pub struct Sphere {
     center: Vec3,
     radius: f32,
+    // cloneする方法以外に実装方法がありそう
     material: Arc<dyn Material>,
 }
 
