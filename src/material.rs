@@ -4,7 +4,7 @@ use crate::{
     hit_info::HitInfo,
     random_vec3_in_unit_sphere,
     ray::Ray,
-    utility::{reflect, refract},
+    utility::{reflect, refract, schlick},
 };
 
 // 散乱の情報
@@ -89,21 +89,24 @@ impl Material for Dielectric {
     fn scatter(&self, ray: &Ray, hit: &HitInfo) -> Option<ScatterInfo> {
         let reflected = reflect(ray.direction, hit.n);
         // タプルで束縛!
-        let (outward_normal, in_over_out) = {
+        let (outward_normal, in_over_out, cosine) = {
+            let dot = ray.direction.dot(hit.n);
             // 入射する場合
             if ray.direction.dot(hit.n) > 0.0 {
-                (-hit.n, self.ri)
+                (-hit.n, self.ri, self.ri * dot / ray.direction.length())
             }
             // 出射する場合
             else {
-                (hit.n, self.ri.recip())
+                (hit.n, self.ri.recip(), -dot / ray.direction.length())
             }
         };
 
         if let Some(refracted) = refract(-ray.direction, outward_normal, in_over_out) {
-            Some(ScatterInfo::new(Ray::new(hit.p, refracted), Vec3::ONE))
-        } else {
-            Some(ScatterInfo::new(Ray::new(hit.p, reflected), Vec3::ONE))
+            if rand::random::<f32>() > schlick(cosine, self.ri) {
+                return Some(ScatterInfo::new(Ray::new(hit.p, refracted), Vec3::ONE));
+            }
         }
+
+        Some(ScatterInfo::new(Ray::new(hit.p, reflected), Vec3::ONE))
     }
 }

@@ -39,9 +39,15 @@ pub fn refract(vec3: Vec3, normal: Vec3, in_over_out: f32) -> Option<Vec3> {
     if d > 0.0 {
         Some(-in_over_out * (uv - normal * dt) - normal * d.sqrt())
     }
-    // 全反射の場合 
+    // 全反射の場合
     else {
         None
     }
 }
 
+// フレネル方程式の解を導出するためのSchlickの近似式
+// 大気中から媒質に入射する時用Ï
+pub fn schlick(cosine: f32, ri: f32) -> f32 {
+    let r0 = ((1.0 - ri) / (1.0 + ri)).powi(2);
+    r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
+}
