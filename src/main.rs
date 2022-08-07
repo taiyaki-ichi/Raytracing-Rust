@@ -6,6 +6,7 @@ mod material;
 mod ray;
 mod render;
 mod shape;
+mod shape_builder;
 mod utility;
 
 use std::sync::Arc;
@@ -13,11 +14,13 @@ use std::sync::Arc;
 use camera::Camera;
 use glam::{vec3, Vec2, Vec3};
 use image::{Rgb, RgbImage};
-use material::{Lambertian, Metal, Dielectric};
+use material::{Dielectric, Lambertian, Metal};
 // prelude::*はfor_eachとか用
 use rayon::{iter::IntoParallelRefMutIterator, prelude::*};
 use render::{render, render_aa, Scene};
 use shape::{Shape, ShapeList, Sphere};
+use shape_builder::ShapeBuilder;
+use utility::map;
 
 use crate::ray::Ray;
 
@@ -34,51 +37,91 @@ fn random_vec3_in_unit_sphere() -> Vec3 {
     }
 }
 
-struct SimpleScene {
+struct RandomScene {
     world: ShapeList,
 }
 
-impl SimpleScene {
-    // メンバ変数を持つとコンストラクタを書かなきゃいけないっぽい
-    // コンストラクタについて他の記述の仕方もあると思う
+impl RandomScene {
     fn new() -> Self {
         let mut world = ShapeList::new();
-        world.push(Box::new(Sphere::new(
-            vec3(0.6, 0.0, -1.0),
-            0.5,
-            Arc::new(Lambertian::new(vec3(0.1, 0.2, 0.5))),
-        )));
-        world.push(Box::new(Sphere::new(
-            vec3(-0.6, 0.0, -1.0),
-            0.5,
-            Arc::new(Dielectric::new(1.5)),
-        )));
-        world.push(Box::new(Sphere::new(
-            vec3(-0.0, -0.35, -0.8),
-            0.15,
-            Arc::new(Metal::new(vec3(0.8, 0.8, 0.8), 0.2)),
-        )));
-        world.push(Box::new(Sphere::new(
-            vec3(0.0, -100.5, -1.0),
-            100.0,
-            Arc::new(Lambertian::new(vec3(0.8, 0.8, 0.0))),
-        )));
+
+        world.push(
+            ShapeBuilder::new()
+                .lambertian(vec3(0.5, 0.5, 0.5))
+                .sphere(vec3(0.0, -1000.0, 0.0), 1000.0)
+                .build(),
+        );
+
+        for au in -11..11 {
+            let a = au as f32;
+            for bu in -11..11 {
+                let b = bu as f32;
+                let rx = rand::random::<f32>();
+                let rz = rand::random::<f32>();
+                let material_choice = rand::random::<f32>();
+                let center = vec3(a + 0.9 * rx, 0.2, b + 0.9 * rz);
+                if (center - vec3(4.0, 0.2, 0.0)).length() > 0.9 {
+                    world.push(if material_choice < 0.8 {
+                        let albedo =
+                            map(Vec3::ONE, |_| rand::random::<f32>() * rand::random::<f32>());
+                        ShapeBuilder::new()
+                            .lambertian(albedo)
+                            .sphere(center, 0.2)
+                            .build()
+                    } else if material_choice < 0.95 {
+                        let albedo = map(Vec3::ONE, |_| rand::random::<f32>() * 0.5 + 0.5);
+                        let fuzz = rand::random::<f32>();
+                        ShapeBuilder::new()
+                            .metal(albedo, fuzz)
+                            .sphere(center, 0.2)
+                            .build()
+                    } else {
+                        ShapeBuilder::new()
+                            .dielectric(1.5)
+                            .sphere(center, 0.2)
+                            .build()
+                    });
+                }
+            }
+        }
+
+        world.push(
+            ShapeBuilder::new()
+                .dielectric(1.5)
+                .sphere(vec3(0.0, 1.0, 0.0), 1.0)
+                .build(),
+        );
+        world.push(
+            ShapeBuilder::new()
+                .lambertian(vec3(0.4, 0.2, 0.1))
+                .sphere(vec3(-4.0, 1.0, 0.0), 1.0)
+                .build(),
+        );
+        world.push(
+            ShapeBuilder::new()
+                .metal(vec3(0.7,0.6,0.5), 0.0)
+                .sphere(vec3(4.0, 1.0, 0.0), 1.0)
+                .build(),
+        );
+
         Self { world }
     }
 
-    // 上側が青, 下側が白のグラデーションになるような背景
     fn background(&self, d: Vec3) -> Vec3 {
         let t = 0.5 * (d.y + 1.0);
         Vec3::ONE.lerp(vec3(0.5, 0.7, 1.0), t)
     }
 }
 
-impl Scene for SimpleScene {
+
+impl Scene for RandomScene {
     fn camera(&self) -> Camera {
-        Camera::new(
-            vec3(4.0, 0.0, 0.0),
-            vec3(0.0, 2.0, 0.0),
-            vec3(-2.0, -1.0, -1.0),
+        Camera::from_lookat(
+            vec3(13.0, 2.0, 3.0),
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0),
+            20.0,
+            self.aspect(),
         )
     }
 
@@ -105,5 +148,5 @@ impl Scene for SimpleScene {
 }
 
 fn main() {
-    render_aa(SimpleScene::new());
+    render_aa(RandomScene::new());
 }
